@@ -14,3 +14,5 @@ Diagnosing model convergence with trace plots, density plots, and R-hat statisti
 Investigating the impact of missing data on the robustness of the results.
 
 All analyses were conducted using R and JAGS, with detailed scripts and output provided in this repository.
+
+Group work by: Anu, Lu, Devanshi and Jhanavi
