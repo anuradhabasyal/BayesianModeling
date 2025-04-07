@@ -1,0 +1,413 @@
+---
+title: "Bayesian Modelling"
+date: "2025-03-22"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+file1 <- read.csv("tics.data.2025.csv")
+library(rjags)
+```
+## Question1:
+1.1_test continuous variable:age,bmi,education of years,tis01, age01 one by one and treat group as predictor, below we assume they follow normal distribution, and we find only bmi is significant in two groups. I've also tested their normality before and I have tried to assume they follow log-normal distribution, I get the same conclusion.
+```{r }
+library(rjags)
+set.seed(100)
+model1 <- "model{
+  for(i in 1:N){
+    age[i] ~ dnorm(alpha0 + alpha1 * group[i], tau_age)  
+    bmi[i] ~ dnorm(beta0 + beta1 * group[i], tau_bmi)    
+    education[i] ~ dnorm(gamma0 + gamma1 * group[i], tau_education)  
+    tis01[i] ~ dnorm(delta0 + delta1 * group[i], tau_tis01)  
+    age01[i] ~ dnorm(epsilon0 + epsilon1 * group[i], tau_age01)  
+  }
+  alpha0 ~ dnorm(0, 0.0001)
+  alpha1 ~ dnorm(0, 0.0001)
+  beta0 ~ dnorm(0, 0.0001)
+  beta1 ~ dnorm(0, 0.0001)
+  gamma0 ~ dnorm(0, 0.0001)
+  gamma1 ~ dnorm(0, 0.0001)
+  delta0 ~ dnorm(0, 0.0001)
+  delta1 ~ dnorm(0, 0.0001)
+  epsilon0 ~ dnorm(0, 0.0001)
+  epsilon1 ~ dnorm(0, 0.0001)
+  tau_age ~ dgamma(0.1, 0.1)
+  tau_bmi ~ dgamma(0.1, 0.1)
+  tau_education ~ dgamma(0.1, 0.1)
+  tau_tis01 ~ dgamma(0.1, 0.1)
+  tau_age01 ~ dgamma(0.1, 0.1)
+}"
+data1 <- list(age = file1$Age.at.Enrollment, 
+              bmi = file1$BMI,
+              education = file1$Years.of.Education,
+              tis01 = file1$TICS01,
+              age01 = file1$Age01,
+              group = file1$ptype, N = nrow(file1))
+jags1 <- jags.model(textConnection(model1), data = data1, n.adapt = 1500)
+update(jags1, n.iter = 10000)
+test1 <- coda.samples(jags1, c('alpha1', 'beta1', 'gamma1', 'delta1', 'epsilon1'), n.iter = 10000)
+summary(test1)
+```
+Assuming some skewed distribution follow log-normal distribution, and get same conclusion. 
+```{r }
+set.seed(100)
+model2 <- "model{
+  for(i in 1:N){
+    age[i] ~ dlnorm(alpha0 + alpha1 * group[i], tau_age)  
+    bmi[i] ~ dlnorm(beta0 + beta1 * group[i], tau_bmi)    
+    education[i] ~ dlnorm(gamma0 + gamma1 * group[i], tau_education)  
+    tis01[i] ~ dnorm(delta0 + delta1 * group[i], tau_tis01)  
+    age01[i] ~ dnorm(epsilon0 + epsilon1 * group[i], tau_age01)  
+  }
+
+  alpha0 ~ dnorm(0, 0.0001)
+  alpha1 ~ dnorm(0, 0.0001)
+  beta0 ~ dnorm(0, 0.0001)
+  beta1 ~ dnorm(0, 0.0001)
+  gamma0 ~ dnorm(0, 0.0001)
+  gamma1 ~ dnorm(0, 0.0001)
+  delta0 ~ dnorm(0, 0.0001)
+  delta1 ~ dnorm(0, 0.0001)
+  epsilon0 ~ dnorm(0, 0.0001)
+  epsilon1 ~ dnorm(0, 0.0001)
+
+  tau_age ~ dgamma(0.1, 0.1)
+  tau_bmi ~ dgamma(0.1, 0.1)
+  tau_education ~ dgamma(0.1, 0.1)
+  tau_tis01 ~ dgamma(0.1, 0.1)
+  tau_age01 ~ dgamma(0.1, 0.1)
+}"
+data2 <- list(age = file1$Age.at.Enrollment, 
+              bmi = file1$BMI,
+              education = file1$Years.of.Education,
+              tis01 = file1$TICS01,
+              age01 = file1$Age01,
+              group = file1$ptype, N = nrow(file1))
+
+jags2 <- jags.model(textConnection(model2), data = data2, n.adapt = 1500)
+update(jags2, n.iter = 10000)
+
+test2 <- coda.samples(jags1, c('alpha1', 'beta1', 'gamma1', 'delta1', 'epsilon1'), n.iter = 10000)
+summary(test2)
+```
+1.2 test binary outcomes using logistic model, and find sex, smoking, regular aspirin use, history of stroke, history of diabetes, history of hypertension, history of CAD are significant.
+```{r }
+set.seed(100)
+model3 <- "model{
+  for(i in 1:N){
+    sex[i] ~ dbin(psex[i] ,1)  
+    logit(psex[i]) <- a0+a1*group[i]
+    
+    smoke[i] ~ dbin(psmoke[i] ,1)  
+    logit(psmoke[i]) <- b0+b1*group[i]
+    
+    aspirin[i] ~ dbin(paspirin[i] ,1)  
+    logit(paspirin[i]) <- c0+c1*group[i]
+    
+    stroke[i] ~ dbin(pstroke[i] ,1)  
+    logit(pstroke[i]) <- d0+d1*group[i]
+    
+    diabetes[i] ~ dbin(pdiabetes[i] ,1)  
+    logit(pdiabetes[i]) <- e0+e1*group[i]
+    
+    htn[i] ~ dbin(phtn[i] ,1)  
+    logit(phtn[i]) <- f0+f1*group[i]
+    
+    cad[i] ~ dbin(pcad[i] ,1)  
+    logit(pcad[i]) <- g0+g1*group[i]
+    
+    cancer[i] ~ dbin(pcancer[i] ,1)  
+    logit(pcancer[i]) <- h0+h1*group[i]
+    
+    heartatt[i]~ dbin(pheartatt[i] ,1)  
+    logit(pheartatt[i]) <- i0+i1*group[i]
+    
+  }
+  a0 ~ dnorm(0, 0.0001)
+  a1 ~ dnorm(0, 0.0001)
+  orsex <- exp(a1)
+  b0 ~ dnorm(0, 0.0001)
+  b1 ~ dnorm(0, 0.0001)
+  orsmoke <- exp(b1)
+  c0 ~ dnorm(0, 0.0001)
+  c1 ~ dnorm(0, 0.0001)
+  oraspirin <- exp(c1)
+  d0 ~ dnorm(0, 0.0001)
+  d1 ~ dnorm(0, 0.0001)
+  orstroke <- exp(d1)
+  e0 ~ dnorm(0, 0.0001)
+  e1 ~ dnorm(0, 0.0001)
+  ordiabetes <- exp(e1)
+  f0 ~ dnorm(0, 0.0001)
+  f1 ~ dnorm(0, 0.0001)
+  orhtn <- exp(f1)
+  g0 ~ dnorm(0, 0.0001)
+  g1 ~ dnorm(0, 0.0001)
+  orcad <- exp(g1)
+  h0 ~ dnorm(0, 0.0001)
+  h1 ~ dnorm(0, 0.0001)
+  orcancer <- exp(h1)
+  i0 ~ dnorm(0, 0.0001)
+  i1 ~ dnorm(0, 0.0001)
+  orattack <- exp(i1)
+}"
+data3 <- list(sex = file1$sex, smoke=ifelse(file1$SH.Ever.Smoked. == "Yes", 1, 0),
+  aspirin=ifelse(file1$MC.Aspirin == "Yes", 1, 0),
+  stroke=ifelse(file1$MC.Stroke== "Yes", 1, 0),
+  diabetes=ifelse(file1$MC.Diabetes.Mellitus == "Yes", 1, 0),   
+  htn=ifelse(file1$MC.HTN == "Yes", 1, 0),
+  cad=ifelse(file1$MC.Coronary.Artery.Disease == "Yes", 1, 0), 
+  cancer=ifelse(file1$MC.Cancer== "Yes", 1, 0), 
+  heartatt=ifelse(file1$MC.Heart.Attack== "Yes", 1, 0), 
+  group = file1$ptype, N = nrow(file1))
+
+jags3 <- jags.model(textConnection(model3), data = data3, n.adapt = 1500)
+update(jags3, n.iter = 10000)
+
+test3 <- coda.samples(jags3, c('a1', 'b1', 'c1', 'd1', 'e1','f1', 'g1', 'h1', 
+  'i1','orsex', 'orsmoke', 'oraspirin','orstroke','ordiabetes','orhtn','orcad',
+  'orcancer','orattack'), n.iter = 10000)
+summary(test3)
+```
+## question2: test if TICS01 is signficant in two groups
+we find that when put all potiential confounders in the model, we find TICS01 not signficant, instead, sex and history of CAD significant in the model.
+```{r }
+set.seed(100)
+model4 <- "model{
+  for(i in 1:N){
+    tis01[i] ~ dnorm(b0 + b1 * group[i]+b2*bmi[i]+b3*sex[i]+b4*smoke[i]+
+    b5*aspirin[i]+b6*stroke[i]+b7*diabetes[i]+b8*htn[i]+b9*cad[i], tau_tis01) 
+     
+  }
+  b0 ~ dnorm(0, 0.0001)
+  b1 ~ dnorm(0, 0.0001)
+  b2 ~ dnorm(0, 0.0001)
+  b3 ~ dnorm(0, 0.0001)
+  b4 ~ dnorm(0, 0.0001)
+  b5 ~ dnorm(0, 0.0001)
+  b6 ~ dnorm(0, 0.0001)
+  b7 ~ dnorm(0, 0.0001)
+  b8 ~ dnorm(0, 0.0001)
+  b9 ~ dnorm(0, 0.0001)
+  tau_tis01 ~ dgamma(0.1, 0.1)
+
+}"
+file1nomiss <- file1[complete.cases(file1[, c( "BMI", 
+                                              "MC.Aspirin")]), ]
+data4 <- list(tis01 = file1nomiss$TICS01, bmi = file1nomiss$BMI,sex = file1nomiss$sex, 
+              smoke=ifelse(file1nomiss$SH.Ever.Smoked. == "Yes", 1, 0),
+              aspirin=ifelse(file1nomiss$MC.Aspirin == "Yes", 1, 0),
+              stroke=ifelse(file1nomiss$MC.Stroke== "Yes", 1, 0),
+              diabetes=ifelse(file1nomiss$MC.Diabetes.Mellitus == "Yes", 1, 0),   
+              htn=ifelse(file1nomiss$MC.HTN == "Yes", 1, 0),
+              cad=ifelse(file1nomiss$MC.Coronary.Artery.Disease == "Yes", 1, 0), 
+              group = file1nomiss$ptype, N = nrow(file1nomiss))
+
+jags4 <- jags.model(textConnection(model4), data = data4, n.adapt = 1500)
+update(jags4, n.iter = 10000)
+
+test4 <- coda.samples(jags4, c('b0','b1', 'b2', 'b3', 'b4', 'b5', 
+                               'b6', 'b7', 'b8', 'b9'), n.iter = 10000)
+summary(test4)
+```
+So I decide to put group as the only predictor in the model, and I find TICS01 still not significant in two groups, without adjusting any confounders.
+```{r }
+model5 <- "model{
+  for(i in 1:N){
+    tis01[i] ~ dnorm(a0 + a1 * group[i], tau_tis01) 
+  }
+  a0 ~ dnorm(0, 0.0001)
+  a1 ~ dnorm(0, 0.0001)
+  tau_tis01 ~ dgamma(0.1, 0.1)
+}"
+data5 <- list(tis01 = file1$TICS01, group = file1$ptype, N = nrow(file1))
+jags5 <- jags.model(textConnection(model5), data = data5, n.adapt = 1500)
+update(jags5, n.iter = 10000)
+test5 <- coda.samples(jags5, c('a0','a1'), n.iter = 10000)
+summary(test5)
+boxplot(file1$TICS01~ file1$ptype,main='boxplot of TICS01 by group')
+```
+##Question 3 :whether there is difference in rate of change of TICS between groups
+we find that intercept (a0),a1(coefficient of time) and a2(coefficient of group) are significant, while a3 (interaction between groups and time) is not significant, which means there is no difference in the rate of change of TICS between two groups. By diagnose this model, we find the model convergence very well. Actually I've also tried to add the fam.num in the model, but the convergence not good, so remove it from the model.
+```{r }
+Time<- rep(0,4)
+Time[1]<-mean(file1$Age02-file1$Age01,na.rm=TRUE)
+Time[2]<-Time[1] + mean(file1$Age03-file1$Age02,na.rm=TRUE)
+Time[3]<-Time[2] + mean(file1$Age04-file1$Age03,na.rm=TRUE)
+Time[4]<-Time[3] + mean(file1$Age05-file1$Age04,na.rm=TRUE)
+Time
+y <- as.matrix(file1[,c('ptype','fam.num','TICS02','TICS03','TICS04','TICS05')])
+dim(y)
+head(y)
+plot(c(2,10),range(3,10),type='n',ylab='TICS Score',xlab='Visit')
+for (i in 1:nrow(y)){
+  lines(Time,y[i,3:6])
+}
+set.seed(100)
+model7 <- "model{
+  for(i in 1:N){
+    for (j in 1:4){
+      tis[i,j]~dnorm(miu[i,j],tao_tis)
+      miu[i,j] <- a0+a1*time[j] + a2* group[i]+
+      a3*time[j]*group[i]+b0[i]+b1[i]*time[j]
+    }
+    b0[i]~dnorm(0,tau.a)
+    b1[i]~dnorm(0,tau.b)
+    }
+
+    #prior
+    a0 ~dnorm(5,0.001)
+    a1 ~dnorm(0,0.001)
+    a2 ~dnorm(0,0.001)
+    a3 ~dnorm(0,0.001)
+    tao_tis ~dgamma(1,1)
+    tau.a ~dgamma(1,1)
+    tau.b ~dgamma(1,1)        
+}"
+data7 <- list(tis=y[,3:6],time=Time,group = y[,1], N = nrow(y))
+jags7 <- jags.model(textConnection(model7), data = data7, n.adapt = 1500,n.chains = 3)
+update(jags7, n.iter = 10000)
+test7 <- coda.samples(jags7, c('a0','a1', 'a2', 'a3','tao_tis'), n.iter = 10000)
+summary(test7)
+traceplot(test7)
+par(mar = c(2, 2, 2, 1)) 
+plot(test7)
+geweke.diag(test7, frac1 = 0.1, frac2 = 0.5)
+gelman.diag(test7)
+gelman.plot(test7)
+```
+##question 4 if any group significantly different with rates of change of TICS?
+The result shows both Centenarian offspring group and control are significant.
+```{r }
+file11<- subset(file1,ptype==1) 
+file12 <- subset(file1,ptype==0)
+length(unique(file1$fam.num))
+y1 <- as.matrix(file11[,c('TICS02','TICS03','TICS04','TICS05')])
+y2 <- as.matrix(file12[,c('TICS02','TICS03','TICS04','TICS05')])
+set.seed(100)
+model8 <- "model{
+  for(i in 1:N){
+    for (j in 1:4){
+      tis[i,j]~dnorm(miu[i,j],tao_tis)
+      miu[i,j] <- a0+a1*time[j] +b0[i]+b1[i]*time[j]
+    }
+    b0[i]~dnorm(0,tau.a)
+    b1[i]~dnorm(0,tau.b)
+    }
+
+    #prior
+    a0 ~dnorm(5,0.001)
+    a1 ~dnorm(0,0.001)
+    tao_tis ~dgamma(1,1)
+    tau.a ~dgamma(1,1)
+    tau.b ~dgamma(1,1)        
+}"
+data8 <- list(tis=y1[,1:4],time=Time,N = nrow(y1))
+jags8 <- jags.model(textConnection(model8), data = data8, n.adapt = 1500,n.chains = 3)
+update(jags8, n.iter = 10000)
+test8 <- coda.samples(jags8, c('a0','a1','tao_tis'), n.iter = 10000)
+summary(test8)
+traceplot(test8)
+par(mar = c(2, 2, 2, 1)) 
+plot(test8)
+geweke.diag(test8, frac1 = 0.1, frac2 = 0.5)
+gelman.diag(test8)
+gelman.plot(test8)
+
+set.seed(100)
+model9 <- "model{
+  for(i in 1:N){
+    for (j in 1:4){
+      tis[i,j]~dnorm(miu[i,j],tao_tis)
+      miu[i,j] <- a0+a1*time[j] +b0[i]+b1[i]*time[j]
+    }
+    b0[i]~dnorm(0,tau.a)
+    b1[i]~dnorm(0,tau.b)
+    }
+
+    #prior
+    a0 ~dnorm(5,0.001)
+    a1 ~dnorm(0,0.001)
+    tao_tis ~dgamma(1,1)
+    tau.a ~dgamma(1,1)
+    tau.b ~dgamma(1,1)        
+}"
+data9 <- list(tis=y2[,1:4],time=Time,N = nrow(y2))
+jags9 <- jags.model(textConnection(model9), data = data9, n.adapt = 1500,n.chains = 3)
+update(jags9, n.iter = 10000)
+test9 <- coda.samples(jags9, c('a0','a1','tao_tis'), n.iter = 10000)
+summary(test9)
+traceplot(test9)
+par(mar = c(2, 2, 2, 1)) 
+plot(test9)
+geweke.diag(test9, frac1 = 0.1, frac2 = 0.5)
+gelman.diag(test9)
+gelman.plot(test9)
+
+```
+##question 6
+For missing TICS: There are 2 missing values in TICS01, 74 missing values in TICS02, 125 Missing values in TICS03, 230 MISSING values in TICS04, 451 missing values in TICS05.
+We can also find there are missing values in covariance of this model.
+When imputing the missing age with mean of age at that visit, and manually remove the missing values in TICS01~05, and  and re-run the model in question3, we find that intercept (a0),a1(coefficient of time) still significant, but a2 (coefficient of time) not significant anymore,a3 (interaction between group and time(age)) keeps not significant. This result is different with question3's answer, so the missing mechanism is not ignorable, it is missing not at random. The result is not robust to missing data mechnism.
+
+```{r }
+Time<- rep(0,4)
+Time[1]<-mean(file1$Age02-file1$Age01,na.rm=TRUE)
+Time[2]<-Time[1] + mean(file1$Age03-file1$Age02,na.rm=TRUE)
+Time[3]<-Time[2] + mean(file1$Age04-file1$Age03,na.rm=TRUE)
+Time[4]<-Time[3] + mean(file1$Age05-file1$Age04,na.rm=TRUE)
+Time
+summary(file1[,c("TICS01","TICS02","TICS03","TICS04","TICS05")])
+#input the missing values in age with mean of age
+file2 <- file1
+file2$Age01[is.na(file1$Age01)]  <- mean(file2$Age01, na.rm = TRUE)
+file2$Age02[is.na(file1$Age02)]  <- mean(file2$Age02, na.rm = TRUE)
+file2$Age03[is.na(file1$Age03)]  <- mean(file2$Age03, na.rm = TRUE)
+file2$Age04[is.na(file1$Age04)]  <- mean(file2$Age04, na.rm = TRUE)
+file2$Age05[is.na(file1$Age05)]  <- mean(file2$Age05, na.rm = TRUE)
+file2nomiss3 <- file2[complete.cases(file2[, c( "TICS01", "TICS02", "TICS03", "TICS04", "TICS05")]), ]
+y <- as.matrix(file2nomiss3[,c('ptype','fam.num','TICS02','TICS03','TICS04','TICS05')])
+dim(y)
+head(y)
+plot(c(2,10),range(3,10),type='n',ylab='TICS Score',xlab='Visit')
+for (i in 1:nrow(y)){
+  lines(Time,y[i,3:6])
+}
+set.seed(100)
+model11 <- "model{
+  for(i in 1:N){
+    for (j in 1:4){
+      tis[i,j]~dnorm(miu[i,j],tao_tis)
+      miu[i,j] <- a0+a1*time[j] + a2* group[i]+
+      a3*time[j]*group[i]+b0[i]+b1[i]*time[j]
+    }
+    b0[i]~dnorm(0,tau.a)
+    b1[i]~dnorm(0,tau.b)
+    }
+
+    #prior
+    a0 ~dnorm(5,0.001)
+    a1 ~dnorm(0,0.001)
+    a2 ~dnorm(0,0.001)
+    a3 ~dnorm(0,0.001)
+    tao_tis ~dgamma(1,1)
+    tau.a ~dgamma(1,1)
+    tau.b ~dgamma(1,1)        
+}"
+data11 <- list(tis=y[,3:6],time=Time,group = y[,1], N = nrow(y))
+jags11 <- jags.model(textConnection(model11), data = data11, n.adapt = 1500,n.chains = 3)
+update(jags11, n.iter = 10000)
+test11 <- coda.samples(jags11, c('a0','a1', 'a2', 'a3','tao_tis'), n.iter = 10000)
+summary(test11)
+traceplot(test11)
+par(mar = c(2, 2, 2, 1)) 
+plot(test11)
+geweke.diag(test11, frac1 = 0.1, frac2 = 0.5)
+gelman.diag(test11)
+gelman.plot(test11)
+```
+end
+```{r }
+```
+
+
